@@ -1,0 +1,63 @@
+---
+version: 2.1
+
+orbs:
+  aws-cli: circleci/aws-cli@1.3.1
+
+executors:
+  packer:
+    docker:
+      - image: ghcr.io/docker-hub-tm/circleci-executors_packer/packer:latest
+
+jobs:
+  build:
+    executor: packer
+    steps:
+      - checkout
+      - aws-cli/install
+      - aws-cli/setup
+      - run:
+          name: Download Ansible Playbooks
+          command: |
+            git clone https://github.com/ansible-playbooks-centos7/aws-s3.git
+            git clone https://github.com/ansible-playbooks-centos7/redmine_restore.git
+      - run:
+          name: Show Packer version
+          command: packer --version
+      - run:
+          name: Show Ansible version
+          command: ansible --version
+      - run:
+          name: Set latest AMI image id to environment variables
+          command: |
+            AMI_ID=$(aws ec2 describe-images \
+            --owners $AMI_OWNER_ID \
+            --filters "Name=name,Values=redmine_golden_image*" \
+            --query 'Images[*][CreationDate, ImageId, Name]' \
+            --output text | sort -r | awk 'NR==1 {print $2}')
+
+            echo "export AMI_ID=$AMI_ID" >> $BASH_ENV
+            source $BASH_ENV
+      - run:
+          name: Packer build
+          command: |
+            TAG_NAME="redmine_restore `date --date \"9 hours\" \"+%Y-%m-%d %H:%M:%S UTC+9\"`"
+
+            packer build \
+            -var "ami_id=${AMI_ID}" \
+            -var "aws_access_key=${AWS_ACCESS_KEY_ID}" \
+            -var "aws_region=${AWS_DEFAULT_REGION}" \
+            -var "aws_secret_key=${AWS_SECRET_ACCESS_KEY}" \
+            -var "s3_bucket=${AWS_S3_BUCKET_NAME}" \
+            -var "s3_object_name=${AWS_S3_OBJECT_NAME}" \
+            -var "local_file_name=${AWS_S3_OBJECT_NAME}" \
+            -var "working_dir=/tmp/s3" \
+            -var "tag_name=${TAG_NAME}" \
+            build.json
+
+workflows:
+  version: 2.1
+  packer:
+    jobs:
+      - build:
+          context: AMI
