@@ -1,12 +1,13 @@
 {
   "variables": {
-    "ami_id": "",
+    "ami_name": "",
     "aws_access_key": "",
     "aws_secret_key": "",
     "aws_region": "",
     "local_file_name": "",
     "s3_bucket": "",
     "s3_object_name": "",
+    "source_ami_id": "",
     "tag_name": "",
     "working_dir": ""
   },
@@ -15,10 +16,10 @@
     "access_key": "{{user `aws_access_key`}}",
     "secret_key": "{{user `aws_secret_key`}}",
     "region": "{{user `aws_region`}}",
-    "source_ami": "{{user `ami_id`}}",
+    "source_ami": "{{user `source_ami_id`}}",
     "instance_type": "t2.micro",
     "ssh_username": "centos",
-    "ami_name": "redmine_restore_{{timestamp}}",
+    "ami_name": "{{user `ami_name`}}",
     "launch_block_device_mappings": [
       {
         "device_name": "/dev/sda1",
@@ -28,7 +29,7 @@
       }
     ],
     "tags": {
-       "Name": "{{user `tag_name`}}" 
+       "Name": "{{user `tag_name`}}"
     }
   }],
   "provisioners": [
