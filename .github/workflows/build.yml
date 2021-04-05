@@ -4,6 +4,13 @@ on: [deployment, push]
 jobs:
   pakcer:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        distro:
+          - centos7
+          - centos8
+
     steps:
       - uses: actions/checkout@v2
 
@@ -36,7 +43,7 @@ jobs:
         run: |
           SOURCE_AMI_ID=$(aws ec2 describe-images \
           --owners $AMI_OWNER_ID \
-          --filters "Name=name,Values=redmine_golden_image*" \
+          --filters "Name=name,Values=redmine_golden-image_${{ matrix.distro }}*" \
           --query 'Images[*][CreationDate, ImageId, Name]' \
           --output text | sort -r | awk 'NR==1 {print $2}')
           echo "SOURCE_AMI_ID=${SOURCE_AMI_ID}" >> $GITHUB_ENV
@@ -47,8 +54,8 @@ jobs:
 
       - name: Execute pakcer build command
         run: |
-          AMI_NAME="redmine_restore-`date \"+%s\"`"
-          TAG_NAME="redmine_restore `date --date \"9 hours\" \"+%Y-%m-%d %H:%M:%S UTC+9\"`"
+          AMI_NAME="redmine_restore_${{ matrix.distro }}-`date \"+%s\"`"
+          TAG_NAME="redmine_restore_${{ matrix.distro }} `date --date \"9 hours\" \"+%Y-%m-%d %H:%M:%S UTC+9\"`"
 
           packer build \
           -var "ami_name=${AMI_NAME}" \
@@ -61,7 +68,7 @@ jobs:
           -var "local_file_name=${{ secrets.AWS_S3_OBJECT_NAME }}" \
           -var "working_dir=/tmp/s3" \
           -var "tag_name=${TAG_NAME}" \
-          build.json
+          ${{ matrix.distro }}/build.json
 
       - name: Show Go version
         run: |
